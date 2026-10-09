@@ -30,6 +30,19 @@ func TestCollectFullInventory(t *testing.T) {
 		t.Error("BIOS vendor should not be empty")
 	}
 	
+	// Validate CPU info  
+	if inventory.CPU.Name == "" {
+		t.Error("CPU name should not be empty")
+	}
+
+	if inventory.CPU.Cores == 0 {
+		t.Error("CPU cores should not be zero")
+	}
+
+	if inventory.CPU.Threads == 0 {
+		t.Error("CPU threads should not be zero")
+	}
+	
 	// Validate memory info
 	if len(inventory.Memory) == 0 {
 		t.Error("Should detect at least one memory module")
@@ -54,6 +67,14 @@ func TestInventoryToSnapshot(t *testing.T) {
 			Manufacturer: "Test Manufacturer",
 			Model:        "Test Model",
 		},
+		CPU: CPUInfo{
+			Name:         "Test CPU",
+			Manufacturer: "Test CPU Vendor",
+			Architecture: "x64",
+			Cores:        4,
+			Threads:      8,
+			MaxClockMHz:  3200,
+		},
 		Memory: []MemoryModuleInfo{
 			{
 				DeviceLocator: "DIMM_A1",
@@ -75,5 +96,27 @@ func TestInventoryToSnapshot(t *testing.T) {
 	
 	if len(snapshot.Observations) == 0 {
 		t.Error("Snapshot should contain observations")
+	}
+
+	// Validate CPU is in snapshot
+	cpuDeviceFound := false
+	cpuObservationsFound := 0
+	for _, device := range snapshot.Devices {
+		if device.ID == "cpu-0" {
+			cpuDeviceFound = true
+			break
+		}
+	}
+	if !cpuDeviceFound {
+		t.Error("Snapshot should contain CPU device")
+	}
+
+	for _, obs := range snapshot.Observations {
+		if obs.DeviceID == "cpu-0" {
+			cpuObservationsFound++
+		}
+	}
+	if cpuObservationsFound == 0 {
+		t.Error("Snapshot should contain CPU observations")
 	}
 }

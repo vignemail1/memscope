@@ -206,6 +206,93 @@ func (inv *SystemInventory) ToSnapshot() (*model.Snapshot, error) {
 		})
 	}
 
+	// Add CPU device
+	if inv.CPU.Name != "" {
+		cpuDevice := model.Device{
+			ID:       "cpu-0",
+			Kind:     "cpu",
+			ParentID: "system-0",
+		}
+		snapshot.Devices = append(snapshot.Devices, cpuDevice)
+
+		// Add CPU observations
+		if inv.CPU.Name != "" {
+			snapshot.Observations = append(snapshot.Observations, model.Observation{
+				DeviceID:   "cpu-0",
+				Scope:      "hardware",
+				Parameter:  "name",
+				Value:      &model.Value{Text: &inv.CPU.Name},
+				Source:     model.WMI,
+				Status:     model.Observed,
+				CapturedAt: inv.Timestamp,
+			})
+		}
+
+		if inv.CPU.Manufacturer != "" {
+			snapshot.Observations = append(snapshot.Observations, model.Observation{
+				DeviceID:   "cpu-0",
+				Scope:      "hardware",
+				Parameter:  "manufacturer",
+				Value:      &model.Value{Text: &inv.CPU.Manufacturer},
+				Source:     model.WMI,
+				Status:     model.Observed,
+				CapturedAt: inv.Timestamp,
+			})
+		}
+
+		if inv.CPU.Architecture != "" {
+			snapshot.Observations = append(snapshot.Observations, model.Observation{
+				DeviceID:   "cpu-0",
+				Scope:      "hardware",
+				Parameter:  "architecture",
+				Value:      &model.Value{Text: &inv.CPU.Architecture},
+				Source:     model.WMI,
+				Status:     model.Observed,
+				CapturedAt: inv.Timestamp,
+			})
+		}
+
+		if inv.CPU.Cores > 0 {
+			cores := uint64(inv.CPU.Cores)
+			snapshot.Observations = append(snapshot.Observations, model.Observation{
+				DeviceID:   "cpu-0",
+				Scope:      "hardware",
+				Parameter:  "cores",
+				Value:      &model.Value{Unsigned: &cores},
+				Source:     model.WMI,
+				Status:     model.Observed,
+				CapturedAt: inv.Timestamp,
+			})
+		}
+
+		if inv.CPU.Threads > 0 {
+			threads := uint64(inv.CPU.Threads)
+			snapshot.Observations = append(snapshot.Observations, model.Observation{
+				DeviceID:   "cpu-0",
+				Scope:      "hardware",
+				Parameter:  "threads",
+				Value:      &model.Value{Unsigned: &threads},
+				Source:     model.WMI,
+				Status:     model.Observed,
+				CapturedAt: inv.Timestamp,
+			})
+		}
+
+		if inv.CPU.MaxClockMHz > 0 {
+			maxClock := uint64(inv.CPU.MaxClockMHz)
+			snapshot.Observations = append(snapshot.Observations, model.Observation{
+				DeviceID:   "cpu-0",
+				Scope:      "hardware",
+				Parameter:  "max_clock_mhz",
+				Value:      &model.Value{Unsigned: &maxClock},
+				Unit:       "MHz",
+				Source:     model.WMI,
+				Status:     model.Observed,
+				CapturedAt: inv.Timestamp,
+			})
+		}
+	}
+
 	// Add memory modules
 	for i, module := range inv.Memory {
 		deviceID := fmt.Sprintf("memory-%d", i)
