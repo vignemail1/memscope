@@ -2,8 +2,10 @@ package cli
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/spf13/cobra"
+	runtimecollect "github.com/vignemail1/memscope/internal/collect/runtime"
 )
 
 func newMemoryCmd() *cobra.Command {
@@ -28,9 +30,48 @@ func newMemoryCurrentCmd() *cobra.Command {
 		Short: "Display current active memory configuration",
 		Long:  "Shows the currently active memory timings, frequencies, and voltages",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Fprintln(cmd.OutOrStdout(), "Current Memory Configuration (placeholder)")
-			fmt.Fprintln(cmd.OutOrStdout(), "Frequency: [Not implemented]")
-			fmt.Fprintln(cmd.OutOrStdout(), "Timings: [Not implemented]")
+			if runtime.GOOS != "windows" {
+				fmt.Fprintln(cmd.OutOrStdout(), "Memory parameter collection is only supported on Windows")
+				return nil
+			}
+			
+			fmt.Fprintln(cmd.OutOrStdout(), "Collecting current memory parameters...")
+			
+			provider := runtimecollect.NewProvider()
+			params, err := provider.CollectMemoryParameters()
+			if err != nil {
+				return fmt.Errorf("failed to collect memory parameters: %w", err)
+			}
+			
+			// Display current configuration
+			fmt.Fprintln(cmd.OutOrStdout(), "\n=== Current Memory Configuration ===")
+			fmt.Fprintf(cmd.OutOrStdout(), "Current Frequency: %d MHz\n", params.CurrentFrequency)
+			fmt.Fprintf(cmd.OutOrStdout(), "Configured Speed: %d MHz\n", params.ConfiguredSpeed)
+			
+			// Display active profile
+			if params.Profile != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "Active Profile: %s (%s)\n", params.Profile.Name, params.Profile.Type)
+				fmt.Fprintf(cmd.OutOrStdout(), "Profile Voltage: %.2f V\n", params.Profile.Voltage)
+			}
+			
+			// Display timings
+			if len(params.Timings) > 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "\n=== Memory Timings ===")
+				for name, timing := range params.Timings {
+					fmt.Fprintf(cmd.OutOrStdout(), "%s: %d %s\n", name, timing.Value, timing.Unit)
+				}
+			}
+			
+			// Display voltages
+			if len(params.Voltages) > 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "\n=== Voltages ===")
+				for name, voltage := range params.Voltages {
+					fmt.Fprintf(cmd.OutOrStdout(), "%s: %.3f %s\n", name, voltage.Value, voltage.Unit)
+				}
+			}
+			
+			fmt.Fprintf(cmd.OutOrStdout(), "\nData collected at: %s\n", params.Timestamp.Format("2006-01-02 15:04:05"))
+			
 			return nil
 		},
 	}
