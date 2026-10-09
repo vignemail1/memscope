@@ -14,57 +14,57 @@ jobs:
   build-and-package:
     name: Build, Generate SBOM and Package
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
-    
+
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v7
       with:
-        go-version: '1.21'
-        
+        go-version: '1.27'
+
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    
+
     - name: Install dependencies
       run: go mod download
-    
+
     - name: Run tests
       run: go test -v ./...
-    
+
     - name: Run integration tests (short)
       run: go test -v -short ./test/integration
-    
+
     - name: Build for multiple platforms
       run: |
         # Build for Windows
         GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/memscope-windows-amd64.exe ./cmd/memscope
-        
+
         # Build for Linux
         GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/memscope-linux-amd64 ./cmd/memscope
-        
+
         # Build for macOS
         GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/memscope-darwin-amd64 ./cmd/memscope
         GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/memscope-darwin-arm64 ./cmd/memscope
-    
+
     - name: Install CycloneDX Go tool
       run: |
         go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
-    
+
     - name: Generate CycloneDX SBOM
       run: |
         mkdir -p sbom
         cyclonedx-gomod mod -json -output sbom/cyclonedx-sbom.json -main ./cmd/memscope
         cyclonedx-gomod mod -xml -output sbom/cyclonedx-sbom.xml -main ./cmd/memscope
-    
+
     - name: Install SPDX tools
       run: |
         # Install spdx-sbom-generator
@@ -72,21 +72,21 @@ jobs:
         tar -xzf spdx-sbom-generator.tar.gz
         chmod +x spdx-sbom-generator-linux-amd64
         sudo mv spdx-sbom-generator-linux-amd64 /usr/local/bin/spdx-sbom-generator
-    
+
     - name: Generate SPDX SBOM
       run: |
         # Generate SPDX JSON format
         spdx-sbom-generator -p . -o sbom/spdx-sbom.json -f json
-        
+
         # Also generate SPDX tag-value format
         spdx-sbom-generator -p . -o sbom/spdx-sbom.spdx -f tag
-    
+
     - name: Generate checksums
       run: |
         cd dist
         sha256sum * > checksums.txt
         cd ..
-    
+
     - name: Create package metadata
       run: |
         cat > package-info.json << EOF
@@ -99,23 +99,23 @@ jobs:
           "go_version": "$(go version | cut -d' ' -f3)",
           "platforms": [
             "windows/amd64",
-            "linux/amd64", 
+            "linux/amd64",
             "darwin/amd64",
             "darwin/arm64"
           ],
           "sbom_formats": [
             "cyclonedx-json",
-            "cyclonedx-xml", 
+            "cyclonedx-xml",
             "spdx-json",
             "spdx-tag"
           ]
         }
         EOF
-    
+
     - name: Create release archive
       run: |
         mkdir -p release
-        
+
         # Create main distribution archive
         tar -czf release/memscope-dev-$(git rev-parse --short HEAD).tar.gz \
           dist/ \
@@ -124,12 +124,12 @@ jobs:
           README.md \
           LICENSE \
           docs/
-        
+
         # Create SBOM-only archive for compliance
         tar -czf release/memscope-sbom-$(git rev-parse --short HEAD).tar.gz \
           sbom/ \
           package-info.json
-    
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -140,14 +140,14 @@ jobs:
           package-info.json
           release/
         retention-days: 30
-    
+
     - name: Upload SBOM to GitHub
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v7
       with:
         name: memscope-sbom-${{ github.sha }}
         path: sbom/
         retention-days: 90
-    
+
     - name: Display package summary
       run: |
         echo "## 📦 Package Summary" >> $GITHUB_STEP_SUMMARY
@@ -163,7 +163,7 @@ jobs:
         echo "### 🔍 SBOM Contents" >> $GITHUB_STEP_SUMMARY
         echo "- **CycloneDX**: $(jq -r '.components | length' sbom/cyclonedx-sbom.json) components" >> $GITHUB_STEP_SUMMARY
         echo "- **SPDX**: $(jq -r '.packages | length' sbom/spdx-sbom.json) packages" >> $GITHUB_STEP_SUMMARY
-        
+
     - name: Security scan with Trivy
       uses: aquasecurity/trivy-action@master
       with:
@@ -171,7 +171,7 @@ jobs:
         scan-ref: '.'
         format: 'sarif'
         output: 'trivy-results.sarif'
-    
+
     - name: Upload Trivy scan results
       uses: github/codeql-action/upload-sarif@v2
       if: always()
