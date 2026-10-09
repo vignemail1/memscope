@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"runtime"
 	
 	"github.com/spf13/cobra"
@@ -147,6 +148,15 @@ func displayRecommendations(cmd *cobra.Command, recommendations []*recommend.Rec
 }
 
 func loadSnapshotFromFile(filename string) (*model.Snapshot, error) {
-	// This would be implemented with actual file loading logic
-	return nil, fmt.Errorf("snapshot file loading not implemented in this task")
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read snapshot file: %w", err)
+	}
+	
+	var snapshot model.Snapshot
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return nil, fmt.Errorf("failed to parse snapshot JSON: %w", err)
+	}
+	
+	return &snapshot, nil
 }

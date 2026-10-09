@@ -307,11 +307,152 @@ func (e *Engine) loadDefaultRules() {
 	}
 	
 	e.rules = append(e.rules, stabilityRule)
+	
+	// Add memory compatibility rule
+	compatibilityRule := Rule{
+		ID:       "memory_compatibility_check",
+		Version:  "1.0",
+		Name:     "Memory Compatibility Analysis",
+		Category: "manufacturer_profile",
+		Selector: PlatformSelector{
+			CPUFamily: []string{"Intel", "AMD"},
+		},
+		Logic: RuleLogic{
+			RequiredData: []string{"memory_devices", "cpu", "motherboard"},
+			Conditions: []Condition{
+				{Field: "memory_count", Operator: "gt", Value: 1},
+			},
+		},
+		Evidence: []Evidence{
+			{
+				Type:        "compatibility_check",
+				Source:      "MEMORY_CONTROLLER",
+				Description: "Memory module compatibility with CPU memory controller",
+				Confidence:  0.8,
+			},
+		},
+		Settings: map[string]interface{}{
+			"check_mixed_modules": true,
+			"validate_capacity":   true,
+		},
+		Warnings: []string{
+			"Mixed memory modules may cause stability issues",
+			"Ensure all modules are from the same kit when possible",
+		},
+		Validation: &ValidationPlan{
+			Steps: []ValidationStep{
+				{Order: 1, Action: "Check memory module compatibility", Expected: "All modules are compatible", Required: true},
+				{Order: 2, Action: "Run memory test", Expected: "No errors detected", Required: true},
+			},
+			Tools:    []string{"MemTest86", "CPU-Z"},
+			Duration: "1-2 hours",
+			Precautions: []string{
+				"Ensure memory modules are from the same manufacturer when possible",
+			},
+		},
+	}
+	
+	// Add overclocking stability rule
+	overclockRule := Rule{
+		ID:       "overclocking_stability",
+		Version:  "1.0",
+		Name:     "Overclocking Stability Guidelines",
+		Category: "experimental_candidate",
+		Selector: PlatformSelector{
+			CPUFamily: []string{"Intel", "AMD"},
+		},
+		Logic: RuleLogic{
+			RequiredData: []string{"memory_devices", "cpu"},
+			Conditions: []Condition{
+				{Field: "memory_count", Operator: "gte", Value: 1},
+			},
+		},
+		Evidence: []Evidence{
+			{
+				Type:        "overclocking_analysis",
+				Source:      "STABILITY_DATABASE",
+				Description: "Overclocking stability guidelines based on silicon quality",
+				Confidence:  0.7,
+			},
+		},
+		Settings: map[string]interface{}{
+			"max_frequency_increase": "10%",
+			"voltage_limit":         1.45,
+			"temperature_limit":     85,
+		},
+		Warnings: []string{
+			"Overclocking may void warranty",
+			"Monitor temperatures and stability carefully",
+			"Start with conservative settings and test thoroughly",
+		},
+		Validation: &ValidationPlan{
+			Steps: []ValidationStep{
+				{Order: 1, Action: "Apply conservative overclocking settings", Expected: "System boots successfully", Required: true},
+				{Order: 2, Action: "Run stability test", Expected: "No crashes for 1 hour", Required: true},
+				{Order: 3, Action: "Monitor temperatures", Expected: "Temperatures within safe limits", Required: true},
+			},
+			Tools:    []string{"Prime95", "HWiNFO64", "MemTest86"},
+			Duration: "3-4 hours",
+			Precautions: []string{
+				"Keep BIOS recovery procedures ready",
+				"Monitor temperatures continuously",
+				"Start with conservative settings",
+			},
+		},
+	}
+	
+	// Add thermal management rule
+	thermalRule := Rule{
+		ID:       "thermal_management",
+		Version:  "1.0",
+		Name:     "Memory Thermal Management",
+		Category: "experimental_candidate",
+		Selector: PlatformSelector{
+			CPUFamily: []string{"Intel", "AMD"},
+		},
+		Logic: RuleLogic{
+			RequiredData: []string{"memory_devices"},
+			Conditions: []Condition{
+				{Field: "memory_count", Operator: "gte", Value: 2},
+			},
+		},
+		Evidence: []Evidence{
+			{
+				Type:        "thermal_analysis",
+				Source:      "THERMAL_GUIDELINES",
+				Description: "Memory module thermal management recommendations",
+				Confidence:  0.8,
+			},
+		},
+		Settings: map[string]interface{}{
+			"enable_thermal_monitoring": true,
+			"fan_curve_adjustment":      "aggressive",
+		},
+		Warnings: []string{
+			"High memory density may require additional cooling",
+			"Monitor memory temperatures during stress testing",
+		},
+		Validation: &ValidationPlan{
+			Steps: []ValidationStep{
+				{Order: 1, Action: "Configure thermal monitoring", Expected: "Temperature sensors are active", Required: true},
+				{Order: 2, Action: "Run thermal stress test", Expected: "Temperatures remain stable", Required: true},
+				{Order: 3, Action: "Adjust cooling if needed", Expected: "Optimal thermal performance", Required: false},
+			},
+			Tools:    []string{"HWiNFO64", "FurMark", "Prime95"},
+			Duration: "2-3 hours",
+			Precautions: []string{
+				"Ensure adequate case ventilation",
+				"Monitor memory temperatures closely",
+			},
+		},
+	}
+	
+	e.rules = append(e.rules, compatibilityRule, overclockRule, thermalRule)
 }
 
 // Helper methods for rule evaluation
 func (e *Engine) matchesPlatform(selector PlatformSelector, systemInfo map[string]interface{}) bool {
-	// Basic platform matching logic
+	// Check CPU family
 	if len(selector.CPUFamily) > 0 {
 		cpu, ok := systemInfo["cpu"].(string)
 		if !ok {
@@ -321,6 +462,63 @@ func (e *Engine) matchesPlatform(selector PlatformSelector, systemInfo map[strin
 		match := false
 		for _, family := range selector.CPUFamily {
 			if containsIgnoreCase(cpu, family) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	
+	// Check CPU model
+	if len(selector.CPUModel) > 0 {
+		cpu, ok := systemInfo["cpu"].(string)
+		if !ok {
+			return false
+		}
+		
+		match := false
+		for _, model := range selector.CPUModel {
+			if containsIgnoreCase(cpu, model) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	
+	// Check motherboard model
+	if len(selector.MotherboardModel) > 0 {
+		motherboard, ok := systemInfo["motherboard"].(string)
+		if !ok {
+			return false
+		}
+		
+		match := false
+		for _, model := range selector.MotherboardModel {
+			if containsIgnoreCase(motherboard, model) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	
+	// Check BIOS version
+	if len(selector.BIOSVersion) > 0 {
+		biosVersion, ok := systemInfo["bios_version"].(string)
+		if !ok {
+			return false
+		}
+		
+		match := false
+		for _, version := range selector.BIOSVersion {
+			if containsIgnoreCase(biosVersion, version) {
 				match = true
 				break
 			}
@@ -362,16 +560,65 @@ func (e *Engine) evaluateCondition(condition Condition, systemInfo map[string]in
 	
 	switch condition.Operator {
 	case "gt":
-		if intVal, ok := value.(int); ok {
-			if targetVal, ok := condition.Value.(int); ok {
-				return intVal > targetVal
-			}
-		}
+		return compareNumbers(value, condition.Value, func(a, b float64) bool { return a > b })
+	case "gte":
+		return compareNumbers(value, condition.Value, func(a, b float64) bool { return a >= b })
+	case "lt":
+		return compareNumbers(value, condition.Value, func(a, b float64) bool { return a < b })
+	case "lte":
+		return compareNumbers(value, condition.Value, func(a, b float64) bool { return a <= b })
 	case "eq":
 		return value == condition.Value
+	case "ne":
+		return value != condition.Value
+	case "contains":
+		if str, ok := value.(string); ok {
+			if substr, ok := condition.Value.(string); ok {
+				return strings.Contains(strings.ToLower(str), strings.ToLower(substr))
+			}
+		}
+	case "in":
+		if list, ok := condition.Value.([]interface{}); ok {
+			for _, item := range list {
+				if value == item {
+					return true
+				}
+			}
+		}
 	}
 	
 	return false
+}
+
+// Helper function for numeric comparisons
+func compareNumbers(a, b interface{}, compare func(float64, float64) bool) bool {
+	aFloat, aOk := convertToFloat64(a)
+	bFloat, bOk := convertToFloat64(b)
+	if aOk && bOk {
+		return compare(aFloat, bFloat)
+	}
+	return false
+}
+
+func convertToFloat64(v interface{}) (float64, bool) {
+	switch val := v.(type) {
+	case int:
+		return float64(val), true
+	case int32:
+		return float64(val), true
+	case int64:
+		return float64(val), true
+	case uint32:
+		return float64(val), true
+	case uint64:
+		return float64(val), true
+	case float32:
+		return float64(val), true
+	case float64:
+		return val, true
+	default:
+		return 0, false
+	}
 }
 
 func (e *Engine) identifyMissingData(snapshot *model.Snapshot) []string {

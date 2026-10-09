@@ -278,6 +278,137 @@ func TestRecommendationPolicyCompliance(t *testing.T) {
 	}
 }
 
+func TestAdvancedConditions(t *testing.T) {
+	engine := NewEngine()
+	
+	testCases := []struct {
+		name      string
+		condition Condition
+		systemInfo map[string]interface{}
+		expected   bool
+	}{
+		{
+			name: "contains operator",
+			condition: Condition{Field: "cpu", Operator: "contains", Value: "ryzen"},
+			systemInfo: map[string]interface{}{"cpu": "AMD Ryzen 5 3600"},
+			expected: true,
+		},
+		{
+			name: "in operator",
+			condition: Condition{Field: "memory_type", Operator: "in", Value: []interface{}{"DDR4", "DDR5"}},
+			systemInfo: map[string]interface{}{"memory_type": "DDR4"},
+			expected: true,
+		},
+		{
+			name: "gte operator",
+			condition: Condition{Field: "memory_count", Operator: "gte", Value: 2},
+			systemInfo: map[string]interface{}{"memory_count": 4},
+			expected: true,
+		},
+		{
+			name: "lte operator",
+			condition: Condition{Field: "memory_count", Operator: "lte", Value: 4},
+			systemInfo: map[string]interface{}{"memory_count": 4},
+			expected: true,
+		},
+		{
+			name: "ne operator",
+			condition: Condition{Field: "status", Operator: "ne", Value: "failed"},
+			systemInfo: map[string]interface{}{"status": "success"},
+			expected: true,
+		},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := engine.evaluateCondition(tc.condition, tc.systemInfo)
+			if result != tc.expected {
+				t.Errorf("Expected %v, got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestExpandedRuleSet(t *testing.T) {
+	engine := NewEngine()
+	
+	// Should have more than just the 2 basic rules
+	if len(engine.rules) < 4 {
+		t.Errorf("Expected at least 4 rules, got %d", len(engine.rules))
+	}
+	
+	// Check for specific rules
+	ruleIDs := make(map[string]bool)
+	for _, rule := range engine.rules {
+		ruleIDs[rule.ID] = true
+	}
+	
+	expectedRules := []string{
+		"xmp_profile_detection",
+		"jedec_stability",
+		"memory_compatibility_check",
+		"overclocking_stability",
+		"thermal_management",
+	}
+	
+	for _, expectedRule := range expectedRules {
+		if !ruleIDs[expectedRule] {
+			t.Errorf("Missing expected rule: %s", expectedRule)
+		}
+	}
+}
+
+func TestEnhancedPlatformMatching(t *testing.T) {
+	engine := NewEngine()
+	
+	testCases := []struct {
+		name       string
+		selector   PlatformSelector
+		systemInfo map[string]interface{}
+		expected   bool
+	}{
+		{
+			name: "CPU family match",
+			selector: PlatformSelector{CPUFamily: []string{"AMD"}},
+			systemInfo: map[string]interface{}{"cpu": "AMD Ryzen 5 3600"},
+			expected: true,
+		},
+		{
+			name: "CPU model match", 
+			selector: PlatformSelector{CPUModel: []string{"3600"}},
+			systemInfo: map[string]interface{}{"cpu": "AMD Ryzen 5 3600"},
+			expected: true,
+		},
+		{
+			name: "Motherboard match",
+			selector: PlatformSelector{MotherboardModel: []string{"B450"}},
+			systemInfo: map[string]interface{}{"motherboard": "ASUS B450-F Gaming"},
+			expected: true,
+		},
+		{
+			name: "BIOS version match",
+			selector: PlatformSelector{BIOSVersion: []string{"4021"}},
+			systemInfo: map[string]interface{}{"bios_version": "4021"},
+			expected: true,
+		},
+		{
+			name: "No match when missing data",
+			selector: PlatformSelector{CPUFamily: []string{"Intel"}},
+			systemInfo: map[string]interface{}{"cpu": "AMD Ryzen 5 3600"},
+			expected: false,
+		},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := engine.matchesPlatform(tc.selector, tc.systemInfo)
+			if result != tc.expected {
+				t.Errorf("Expected %v, got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
 // Helper functions for test data creation
 func stringPtr(s string) *string {
 	return &s
