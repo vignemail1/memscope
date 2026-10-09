@@ -4,12 +4,18 @@ package windows
 
 import (
 	"fmt"
-	"golang.org/x/sys/windows/registry"
 )
 
 // RegistryReader provides access to Windows Registry
 type RegistryReader struct {
 	// Placeholder for registry access
+}
+
+// BIOSInfo represents BIOS information from registry
+type BIOSInfo struct {
+	Vendor      string
+	Version     string
+	ReleaseDate string
 }
 
 // NewRegistryReader creates a new Registry reader

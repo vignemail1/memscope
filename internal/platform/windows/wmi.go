@@ -11,7 +11,7 @@ import (
 
 // WMIClient provides access to Windows Management Instrumentation
 type WMIClient struct {
-	connection *ole.IUnknown
+	connection *ole.IDispatch
 }
 
 // NewWMIClient creates a new WMI client connection
@@ -79,7 +79,7 @@ func (w *WMIClient) Query(query string) ([]map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to get enumerator: %w", err)
 	}
 	
-	enum := enumVar.ToIUnknown()
+	enum := enumVar.ToIDispatch()
 	defer enum.Release()
 	
 	for {
