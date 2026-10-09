@@ -11,13 +11,6 @@ type RegistryReader struct {
 	// Placeholder for registry access
 }
 
-// BIOSInfo represents BIOS information from registry
-type BIOSInfo struct {
-	Vendor      string
-	Version     string
-	ReleaseDate string
-}
-
 // NewRegistryReader creates a new Registry reader
 func NewRegistryReader() (*RegistryReader, error) {
 	// TODO: Implement registry access initialization
