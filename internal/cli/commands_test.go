@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -94,16 +95,17 @@ func TestExportCommand(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := NewRootCmd()
 	cmd.SetOut(&buf)
+	// Test that export command fails properly when required flags are missing
 	cmd.SetArgs([]string{"export"})
 	
 	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("export command failed: %v", err)
+	if err == nil {
+		t.Fatal("export command should have failed without required --output flag")
 	}
 	
-	output := buf.String()
-	if output == "" {
-		t.Fatal("export command produced no output")
+	// Test that error message is informative
+	if !strings.Contains(err.Error(), "output file path is required") {
+		t.Errorf("Expected error about missing output flag, got: %v", err)
 	}
 }
 

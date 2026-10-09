@@ -31,70 +31,70 @@ const (
 // Value holds exactly one typed value when present. Validation is a future task.
 // A nil observation Value represents missing data, never a measured zero.
 type Value struct {
-	Text     *string
-	Unsigned *uint64
-	Decimal  *float64
-	Boolean  *bool
+	Text     *string  `json:"text,omitempty"`
+	Unsigned *uint64  `json:"unsigned,omitempty"`
+	Decimal  *float64 `json:"decimal,omitempty"`
+	Boolean  *bool    `json:"boolean,omitempty"`
 }
 
 type Device struct {
-	ID       string
-	Kind     string
-	ParentID string
+	ID       string `json:"id"`
+	Kind     string `json:"kind"`
+	ParentID string `json:"parent_id,omitempty"`
 }
 
 type Diagnostic struct {
-	Code      string
-	Severity  string
-	Message   string
-	Source    Source
-	DeviceID  string
-	Parameter string
+	Code      string `json:"code"`
+	Severity  string `json:"severity"`
+	Message   string `json:"message"`
+	Source    Source `json:"source"`
+	DeviceID  string `json:"device_id,omitempty"`
+	Parameter string `json:"parameter,omitempty"`
 }
 
 type Observation struct {
-	DeviceID      string
-	Scope         string
-	Parameter     string
-	Value         *Value
-	Unit          string
-	Source        Source
-	SourceVersion string
-	Status        Status
-	CapturedAt    time.Time
-	Diagnostics   []Diagnostic
+	DeviceID      string       `json:"device_id"`
+	Scope         string       `json:"scope"`
+	Parameter     string       `json:"parameter"`
+	Value         *Value       `json:"value,omitempty"`
+	Unit          string       `json:"unit,omitempty"`
+	Source        Source       `json:"source"`
+	SourceVersion string       `json:"source_version,omitempty"`
+	Status        Status       `json:"status"`
+	CapturedAt    time.Time    `json:"captured_at"`
+	Diagnostics   []Diagnostic `json:"diagnostics,omitempty"`
 }
 
 type Profile struct {
-	ID           string
-	DeviceID     string
-	Type         string
-	Version      string
-	Observations []Observation
-	Diagnostics  []Diagnostic
+	ID           string        `json:"id"`
+	DeviceID     string        `json:"device_id"`
+	Type         string        `json:"type"`
+	Version      string        `json:"version"`
+	Observations []Observation `json:"observations,omitempty"`
+	Diagnostics  []Diagnostic  `json:"diagnostics,omitempty"`
 }
 
 type Capability struct {
-	Name      string
-	Available bool
-	Reason    string
+	Name      string `json:"name"`
+	Available bool   `json:"available"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 type Platform struct {
-	OS   string
-	Arch string
+	OS   string `json:"os"`
+	Arch string `json:"arch"`
 }
 
 type Snapshot struct {
-	SchemaVersion        string
-	ToolVersion          string
-	ID                   string
-	CollectionStartedAt  time.Time
-	CollectionFinishedAt time.Time
-	Platform             Platform
-	Devices              []Device
-	Observations         []Observation
-	Profiles             []Profile
-	Diagnostics          []Diagnostic
-	Capabilities         []Capability
+	SchemaVersion        string       `json:"schema_version"`
+	ToolVersion          string       `json:"tool_version"`
+	ID                   string       `json:"id"`
+	CollectionStartedAt  time.Time    `json:"collection_started_at"`
+	CollectionFinishedAt time.Time    `json:"collection_finished_at"`
+	Platform             Platform     `json:"platform"`
+	Devices              []Device     `json:"devices"`
+	Observations         []Observation `json:"observations"`
+	Profiles             []Profile    `json:"profiles"`
+	Diagnostics          []Diagnostic `json:"diagnostics"`
+	Capabilities         []Capability `json:"capabilities"`
 }
