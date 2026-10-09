@@ -4,6 +4,8 @@ package windows
 import (
 	"runtime"
 	"testing"
+	
+	"github.com/vignemail1/memscope/internal/collect/inventory"
 )
 
 func TestGetSystemInfo(t *testing.T) {
@@ -45,27 +47,27 @@ func TestInventoryProviderIntegration(t *testing.T) {
 		t.Skip("Skipping Windows-specific test")
 	}
 	
-	provider := NewInventoryProvider()
-	inventory, err := provider.CollectInventory()
+	provider := inventory.NewProvider()
+	inv, err := provider.CollectInventory()
 	if err != nil {
 		t.Fatalf("CollectInventory failed: %v", err)
 	}
 	
 	// Validate inventory structure
-	if inventory.System.Manufacturer == "" {
+	if inv.System.Manufacturer == "" {
 		t.Error("System manufacturer should not be empty")
 	}
 	
-	if inventory.System.Model == "" {
+	if inv.System.Model == "" {
 		t.Error("System model should not be empty")
 	}
 	
-	if len(inventory.Memory) == 0 {
+	if len(inv.Memory) == 0 {
 		t.Error("Should detect at least one memory module")
 	}
 	
 	// Validate memory module data
-	for i, module := range inventory.Memory {
+	for i, module := range inv.Memory {
 		if module.Capacity == 0 {
 			t.Errorf("Memory module %d should have non-zero capacity", i)
 		}
