@@ -31,6 +31,15 @@ func (p *WindowsProvider) CollectInventory() (*SystemInventory, error) {
 		return nil, fmt.Errorf("failed to get memory info: %w", err)
 	}
 	
+	// Get CPU information
+	cpuInfo, err := windows.GetCPUInfo()
+	if err != nil {
+		// CPU collection is not critical, log and continue with placeholder
+		cpuInfo = &windows.CPUInfo{
+			Name: "CPU info collection failed",
+		}
+	}
+	
 	// Create inventory structure
 	inv := &SystemInventory{
 		Timestamp: time.Now(),
@@ -38,6 +47,14 @@ func (p *WindowsProvider) CollectInventory() (*SystemInventory, error) {
 			Manufacturer: systemInfo.Manufacturer,
 			Model:        systemInfo.Model,
 			SerialNumber: systemInfo.SerialNumber,
+		},
+		CPU: CPUInfo{
+			Name:         cpuInfo.Name,
+			Manufacturer: cpuInfo.Manufacturer,
+			Architecture: cpuInfo.Architecture,
+			Cores:        cpuInfo.Cores,
+			Threads:      cpuInfo.Threads,
+			MaxClockMHz:  cpuInfo.MaxClockMHz,
 		},
 		BIOS: BIOSInfo{
 			Vendor:  systemInfo.BIOSVendor,

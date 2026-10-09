@@ -51,6 +51,28 @@ func runInspect(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Fprintln(cmd.OutOrStdout())
 	
+	// CPU Information
+	if inv.CPU.Name != "" && inv.CPU.Name != "CPU info collection failed" {
+		fmt.Fprintln(cmd.OutOrStdout(), "CPU Information:")
+		fmt.Fprintf(cmd.OutOrStdout(), "  Name:         %s\n", inv.CPU.Name)
+		if inv.CPU.Manufacturer != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Manufacturer: %s\n", inv.CPU.Manufacturer)
+		}
+		if inv.CPU.Architecture != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Architecture: %s\n", inv.CPU.Architecture)
+		}
+		if inv.CPU.Cores > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Cores:        %d\n", inv.CPU.Cores)
+		}
+		if inv.CPU.Threads > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Threads:      %d\n", inv.CPU.Threads)
+		}
+		if inv.CPU.MaxClockMHz > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Max Speed:    %d MHz\n", inv.CPU.MaxClockMHz)
+		}
+		fmt.Fprintln(cmd.OutOrStdout())
+	}
+	
 	// Memory Information
 	fmt.Fprintf(cmd.OutOrStdout(), "Memory Modules (%d detected):\n", len(inv.Memory))
 	for i, module := range inv.Memory {

@@ -258,3 +258,76 @@ func GetMemoryInfo() ([]MemoryModule, error) {
 	
 	return modules, nil
 }
+
+// CPUInfo represents processor information from WMI
+type CPUInfo struct {
+	Name         string
+	Manufacturer string
+	Architecture string
+	Cores        uint32
+	Threads      uint32
+	MaxClockMHz  uint32
+}
+
+// GetCPUInfo retrieves processor information via WMI
+func GetCPUInfo() (*CPUInfo, error) {
+	client, err := NewWMIClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create WMI client: %w", err)
+	}
+	defer client.Close()
+	
+	// Query processor information
+	query := "SELECT Name, Manufacturer, Architecture, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed FROM Win32_Processor"
+	results, err := client.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query processor: %w", err)
+	}
+	
+	if len(results) == 0 {
+		return nil, fmt.Errorf("no processor information found")
+	}
+	
+	info := &CPUInfo{}
+	
+	// Extract CPU info from first processor
+	result := results[0]
+	if name, ok := result["Name"].(string); ok {
+		info.Name = name
+	}
+	if manufacturer, ok := result["Manufacturer"].(string); ok {
+		info.Manufacturer = manufacturer
+	}
+	if arch, ok := result["Architecture"].(uint16); ok {
+		// Convert architecture number to string
+		switch arch {
+		case 0:
+			info.Architecture = "x86"
+		case 1:
+			info.Architecture = "MIPS"
+		case 2:
+			info.Architecture = "Alpha"
+		case 3:
+			info.Architecture = "PowerPC"
+		case 5:
+			info.Architecture = "ARM"
+		case 6:
+			info.Architecture = "IA64"
+		case 9:
+			info.Architecture = "x64"
+		default:
+			info.Architecture = fmt.Sprintf("Unknown (%d)", arch)
+		}
+	}
+	if cores, ok := result["NumberOfCores"].(uint32); ok {
+		info.Cores = cores
+	}
+	if threads, ok := result["NumberOfLogicalProcessors"].(uint32); ok {
+		info.Threads = threads
+	}
+	if maxSpeed, ok := result["MaxClockSpeed"].(uint32); ok {
+		info.MaxClockMHz = maxSpeed
+	}
+	
+	return info, nil
+}
