@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 	runtimecollect "github.com/vignemail1/memscope/internal/collect/runtime"
@@ -40,7 +41,16 @@ func newMemoryCurrentCmd() *cobra.Command {
 			provider := runtimecollect.NewProvider()
 			params, err := provider.CollectMemoryParameters()
 			if err != nil {
-				return fmt.Errorf("failed to collect memory parameters: %w", err)
+				// Provide more helpful error context
+				if strings.Contains(err.Error(), "not supported") {
+					return fmt.Errorf("memory parameter collection requires Windows with appropriate hardware access")
+				}
+				if strings.Contains(err.Error(), "using defaults") || strings.Contains(err.Error(), "using typical") {
+					fmt.Fprintf(cmd.OutOrStderr(), "Warning: Some parameters use typical values (hardware sensors unavailable)\n")
+					// Continue with the data we have
+				} else {
+					return fmt.Errorf("failed to collect memory parameters: %w", err)
+				}
 			}
 			
 			// Display current configuration
