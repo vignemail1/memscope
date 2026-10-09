@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 )
 
@@ -29,10 +30,10 @@ without making any modifications to BIOS or firmware settings.`,
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Print the version number",
-		Long:  "Print the version number of memscope",
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Println("memscope dev (placeholder)")
+		Short: "Print version information",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Fprintln(cmd.OutOrStdout(), "memscope development version")
+			return nil
 		},
 	}
 }

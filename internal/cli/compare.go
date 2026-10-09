@@ -10,13 +10,9 @@ func newCompareCmd() *cobra.Command {
 		Use:   "compare [snapshot1] [snapshot2]",
 		Short: "Compare two system snapshots",
 		Long:  "Analyzes differences between system snapshots for before/after analysis",
-		// Remove Args: cobra.ExactArgs(2) - this wasn't specified
+		Args:  cobra.ExactArgs(2), // Restore this validation from original spec
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) >= 2 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Comparing %s vs %s (placeholder)\n", args[0], args[1])
-			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), "System Snapshot Comparison (placeholder)")
-			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Comparing %s vs %s (placeholder)\n", args[0], args[1])
 			return nil
 		},
 	}
