@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	
 	"github.com/vignemail1/memscope/internal/model"
@@ -208,6 +209,13 @@ func (e *Exporter) ExportToFile(data interface{}, filename string, format string
 
 // ConvertSnapshotToMemoryAnalysis converts a snapshot to memory analysis format
 func (e *Exporter) ConvertSnapshotToMemoryAnalysis(snapshot *model.Snapshot) *MemoryAnalysis {
+	if snapshot == nil {
+		return &MemoryAnalysis{
+			Timestamp: time.Now(),
+			Modules:   []*MemoryModule{},
+		}
+	}
+	
 	analysis := &MemoryAnalysis{
 		Timestamp: snapshot.CollectionStartedAt,
 		Modules:   []*MemoryModule{},
@@ -221,106 +229,123 @@ func (e *Exporter) ConvertSnapshotToMemoryAnalysis(snapshot *model.Snapshot) *Me
 	
 	// Extract additional system info from observations
 	for _, obs := range snapshot.Observations {
-		if obs.Value != nil && obs.Value.Text != nil {
-			switch obs.Parameter {
-			case "name":
-				if strings.Contains(obs.DeviceID, "cpu") {
-					analysis.SystemInfo.CPU = *obs.Value.Text
-				}
-			case "model":
-				if strings.Contains(obs.DeviceID, "system") {
-					analysis.SystemInfo.Motherboard = *obs.Value.Text
-				}
-			case "version":
-				if strings.Contains(obs.DeviceID, "bios") {
-					analysis.SystemInfo.BIOSVersion = *obs.Value.Text
-				}
+		if obs.Value == nil || obs.Value.Text == nil {
+			continue
+		}
+		
+		switch obs.Parameter {
+		case "name":
+			if strings.Contains(obs.DeviceID, "cpu") {
+				analysis.SystemInfo.CPU = *obs.Value.Text
+			}
+		case "model":
+			if strings.Contains(obs.DeviceID, "system") {
+				analysis.SystemInfo.Motherboard = *obs.Value.Text
+			}
+		case "version":
+			if strings.Contains(obs.DeviceID, "bios") {
+				analysis.SystemInfo.BIOSVersion = *obs.Value.Text
 			}
 		}
 	}
 	
-	// Convert memory devices
+	// Convert memory devices with proper validation
 	for _, device := range snapshot.Devices {
-		if device.Kind == "memory" {
-			module := &MemoryModule{
-				Slot:    device.ID,
-				Timings: make(map[string]uint16),
+		if device.Kind != "memory" {
+			continue
+		}
+		
+		module := &MemoryModule{
+			Timings: make(map[string]uint16),
+		}
+		
+		// Safe property extraction with type validation
+		for _, obs := range snapshot.Observations {
+			if obs.DeviceID != device.ID || obs.Value == nil {
+				continue
 			}
 			
-			// Extract memory module properties from observations
-			for _, obs := range snapshot.Observations {
-				if obs.DeviceID == device.ID && obs.Value != nil {
-					switch obs.Parameter {
-					case "manufacturer":
-						if obs.Value.Text != nil {
-							module.Manufacturer = *obs.Value.Text
-						}
-					case "part_number":
-						if obs.Value.Text != nil {
-							module.PartNumber = *obs.Value.Text
-						}
-					case "serial_number":
-						if obs.Value.Text != nil {
-							module.SerialNumber = *obs.Value.Text
-						}
-					case "capacity":
-						if obs.Value.Unsigned != nil {
-							// Convert bytes to GB for display
-							capacityGB := *obs.Value.Unsigned / (1024 * 1024 * 1024)
-							module.Capacity = fmt.Sprintf("%dGB", capacityGB)
-						}
-					case "speed":
-						if obs.Value.Unsigned != nil {
-							module.Speed = uint32(*obs.Value.Unsigned)
-						}
-					case "device_locator":
-						if obs.Value.Text != nil {
-							module.Slot = *obs.Value.Text
-						}
-					case "memory_type":
-						if obs.Value.Text != nil {
-							module.MemoryType = *obs.Value.Text
-						}
-					case "form_factor":
-						if obs.Value.Text != nil {
-							module.FormFactor = *obs.Value.Text
-						}
+			switch obs.Parameter {
+			case "manufacturer":
+				if obs.Value.Text != nil && *obs.Value.Text != "" {
+					module.Manufacturer = *obs.Value.Text
+				}
+			case "part_number":
+				if obs.Value.Text != nil && *obs.Value.Text != "" {
+					module.PartNumber = *obs.Value.Text
+				}
+			case "serial_number":
+				if obs.Value.Text != nil && *obs.Value.Text != "" {
+					module.SerialNumber = *obs.Value.Text
+				}
+			case "capacity":
+				if obs.Value.Unsigned != nil {
+					// Convert bytes to GB for display
+					capacityGB := *obs.Value.Unsigned / (1024 * 1024 * 1024)
+					module.Capacity = fmt.Sprintf("%dGB", capacityGB)
+				}
+			case "speed":
+				if obs.Value.Unsigned != nil && *obs.Value.Unsigned > 0 {
+					module.Speed = uint32(*obs.Value.Unsigned)
+				}
+			case "device_locator":
+				if obs.Value.Text != nil && *obs.Value.Text != "" {
+					module.Slot = *obs.Value.Text
+				}
+			case "memory_type":
+				if obs.Value.Text != nil && *obs.Value.Text != "" {
+					module.MemoryType = *obs.Value.Text
+				}
+			case "form_factor":
+				if obs.Value.Text != nil && *obs.Value.Text != "" {
+					module.FormFactor = *obs.Value.Text
+				}
+			}
+		}
+		
+		// Set slot from device.ID if not set from observations
+		if module.Slot == "" {
+			module.Slot = device.ID
+		}
+		
+		// Extract SPD profiles if available
+		for _, profile := range snapshot.Profiles {
+			if profile.DeviceID != device.ID || profile.Type != "spd" {
+				continue
+			}
+			
+			spdProfile := &SPDProfile{
+				Name:     profile.ID,
+				Type:     profile.Type,
+				Timings:  make(map[string]uint16),
+				Supported: true,
+			}
+			
+			// Extract profile observations
+			for _, obs := range profile.Observations {
+				if obs.Value == nil || obs.Value.Text == nil {
+					continue
+				}
+				
+				switch obs.Parameter {
+				case "manufacturer":
+					// Profile manufacturer might override device manufacturer
+					if module.Manufacturer == "" {
+						module.Manufacturer = *obs.Value.Text
 					}
 				}
 			}
 			
-			// Extract SPD profiles if available
-			for _, profile := range snapshot.Profiles {
-				if profile.DeviceID == device.ID && profile.Type == "spd" {
-					spdProfile := &SPDProfile{
-						Name:     profile.ID,
-						Type:     profile.Type,
-						Timings:  make(map[string]uint16),
-						Supported: true,
-					}
-					
-					// Extract profile observations
-					for _, obs := range profile.Observations {
-						if obs.Value != nil && obs.Value.Text != nil {
-							switch obs.Parameter {
-							case "manufacturer":
-								// Profile manufacturer might override device manufacturer
-								if module.Manufacturer == "" {
-									module.Manufacturer = *obs.Value.Text
-								}
-							}
-						}
-					}
-					
-					module.SPDProfiles = append(module.SPDProfiles, spdProfile)
-				}
-			}
-			
-			// Set default voltage if not specified
-			if module.Voltage == 0 {
-				module.Voltage = 1.2 // Default DDR4 voltage
-			}
-			
+			module.SPDProfiles = append(module.SPDProfiles, spdProfile)
+		}
+		
+		// Set default voltage if not specified
+		if module.Voltage == 0 {
+			module.Voltage = 1.2 // Default DDR4 voltage
+		}
+		
+		// Only add modules that have at least some valid data
+		if module.Manufacturer != "" || module.PartNumber != "" || module.Speed > 0 || module.Slot != "" {
 			analysis.Modules = append(analysis.Modules, module)
 		}
 	}

@@ -6,6 +6,12 @@ import (
 	"github.com/vignemail1/memscope/internal/recommend"
 )
 
+// Default voltage constants
+const (
+	DefaultDDR4Voltage = 1.2
+	DefaultDDR5Voltage = 1.1
+)
+
 // ExportRequest represents a request to export data
 type ExportRequest struct {
 	Type       string                 `json:"type"`        // snapshot, memory, recommendations, runtime

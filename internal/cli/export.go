@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	
 	"github.com/vignemail1/memscope/internal/collect/inventory"
+	runtimeCollect "github.com/vignemail1/memscope/internal/collect/runtime"
 	"github.com/vignemail1/memscope/internal/export"
 	"github.com/vignemail1/memscope/internal/model"
 	"github.com/vignemail1/memscope/internal/recommend"
@@ -30,7 +31,23 @@ func newExportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export system data and analysis results",
-		Long:  "Export system snapshots, memory analysis, and recommendations to JSON or CSV formats",
+		Long: `Export system snapshots, memory analysis, and recommendations to JSON or CSV formats
+
+Supported export types:
+  - snapshot: Complete system snapshot (JSON only)
+  - memory: Memory analysis with timing and SPD data (JSON, CSV)  
+  - recommendations: BIOS optimization recommendations (JSON, CSV)
+  - runtime: Current memory parameters (JSON, CSV)
+
+CSV format is optimized for spreadsheet analysis and includes:
+  - Memory modules with timing parameters
+  - Recommendation summaries with evidence metrics
+  - Runtime parameters with current configuration
+
+Examples:
+  memscope export --type snapshot --output data.json
+  memscope export --type memory --format csv --output memory.csv
+  memscope export --type recommendations --format csv --output recommendations.csv --delimiter ";"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			start := time.Now()
 			
@@ -50,6 +67,11 @@ func newExportCmd() *cobra.Command {
 				default:
 					return fmt.Errorf("cannot auto-detect format from extension %s, please specify --format", ext)
 				}
+			}
+			
+			// Validate format compatibility
+			if formatFlag == "csv" && typeFlag == "snapshot" {
+				return fmt.Errorf("CSV format is not supported for snapshot export, use JSON instead")
 			}
 			
 			// Create exporter with options
@@ -91,9 +113,9 @@ func newExportCmd() *cobra.Command {
 		},
 	}
 	
-	cmd.Flags().StringVar(&formatFlag, "format", "", "Export format (json, csv) - auto-detected from file extension")
+	cmd.Flags().StringVar(&formatFlag, "format", "", "Export format (json, csv) - auto-detected from file extension. Note: CSV only supports memory, recommendations, and runtime types")
 	cmd.Flags().StringVar(&outputFlag, "output", "", "Output file path (required)")
-	cmd.Flags().StringVar(&typeFlag, "type", "snapshot", "Data type to export (snapshot, memory, recommendations, runtime)")
+	cmd.Flags().StringVar(&typeFlag, "type", "snapshot", "Data type to export: snapshot (JSON only), memory (JSON/CSV), recommendations (JSON/CSV), runtime (JSON/CSV)")
 	cmd.Flags().StringVar(&inputFlag, "input", "", "Input snapshot file for offline analysis")
 	cmd.Flags().BoolVar(&prettyFlag, "pretty", true, "Pretty-print JSON output")
 	cmd.Flags().StringVar(&delimiterFlag, "delimiter", ",", "CSV delimiter character")
@@ -101,11 +123,8 @@ func newExportCmd() *cobra.Command {
 	return cmd
 }
 
-// exportSnapshot exports system snapshot data
-func exportSnapshot(exporter *export.Exporter, inputFile, outputFile, format string) (*export.ExportResult, error) {
-	var snapshot *model.Snapshot
-	var err error
-	
+// loadSnapshotFromSource loads a snapshot from file or live collection
+func loadSnapshotFromSource(inputFile string) (*model.Snapshot, error) {
 	if inputFile != "" {
 		// Load from existing snapshot file
 		data, err := os.ReadFile(inputFile)
@@ -113,26 +132,38 @@ func exportSnapshot(exporter *export.Exporter, inputFile, outputFile, format str
 			return nil, fmt.Errorf("failed to read input file: %w", err)
 		}
 		
-		snapshot = &model.Snapshot{}
-		if err := json.Unmarshal(data, snapshot); err != nil {
+		var snapshot model.Snapshot
+		if err := json.Unmarshal(data, &snapshot); err != nil {
 			return nil, fmt.Errorf("failed to parse input snapshot: %w", err)
 		}
-	} else {
-		// Collect live data
-		if runtime.GOOS != "windows" {
-			return nil, fmt.Errorf("live data collection requires Windows, use --input with snapshot file")
-		}
 		
-		provider := inventory.NewProvider()
-		inv, err := provider.CollectInventory()
-		if err != nil {
-			return nil, fmt.Errorf("failed to collect inventory: %w", err)
-		}
-		
-		snapshot, err = inv.ToSnapshot()
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert inventory to snapshot: %w", err)
-		}
+		return &snapshot, nil
+	}
+	
+	// Collect live data
+	if runtime.GOOS != "windows" {
+		return nil, fmt.Errorf("live data collection requires Windows, use --input with snapshot file")
+	}
+	
+	provider := inventory.NewProvider()
+	inv, err := provider.CollectInventory()
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect inventory: %w", err)
+	}
+	
+	snapshot, err := inv.ToSnapshot()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert inventory to snapshot: %w", err)
+	}
+	
+	return snapshot, nil
+}
+
+// exportSnapshot exports system snapshot data
+func exportSnapshot(exporter *export.Exporter, inputFile, outputFile, format string) (*export.ExportResult, error) {
+	snapshot, err := loadSnapshotFromSource(inputFile)
+	if err != nil {
+		return nil, err
 	}
 	
 	// Export to file
@@ -160,36 +191,9 @@ func exportSnapshot(exporter *export.Exporter, inputFile, outputFile, format str
 
 // exportMemoryAnalysis exports memory-specific analysis data
 func exportMemoryAnalysis(exporter *export.Exporter, inputFile, outputFile, format string) (*export.ExportResult, error) {
-	var snapshot *model.Snapshot
-	var err error
-	
-	if inputFile != "" {
-		// Load from existing snapshot file
-		data, err := os.ReadFile(inputFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read input file: %w", err)
-		}
-		
-		snapshot = &model.Snapshot{}
-		if err := json.Unmarshal(data, snapshot); err != nil {
-			return nil, fmt.Errorf("failed to parse input snapshot: %w", err)
-		}
-	} else {
-		// Collect live data
-		if runtime.GOOS != "windows" {
-			return nil, fmt.Errorf("live data collection requires Windows, use --input with snapshot file")
-		}
-		
-		provider := inventory.NewProvider()
-		inv, err := provider.CollectInventory()
-		if err != nil {
-			return nil, fmt.Errorf("failed to collect inventory: %w", err)
-		}
-		
-		snapshot, err = inv.ToSnapshot()
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert inventory to snapshot: %w", err)
-		}
+	snapshot, err := loadSnapshotFromSource(inputFile)
+	if err != nil {
+		return nil, err
 	}
 	
 	// Convert to memory analysis format
@@ -220,36 +224,9 @@ func exportMemoryAnalysis(exporter *export.Exporter, inputFile, outputFile, form
 
 // exportRecommendations exports recommendation analysis results
 func exportRecommendations(exporter *export.Exporter, inputFile, outputFile, format string) (*export.ExportResult, error) {
-	var snapshot *model.Snapshot
-	var err error
-	
-	if inputFile != "" {
-		// Load from existing snapshot file
-		data, err := os.ReadFile(inputFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read input file: %w", err)
-		}
-		
-		snapshot = &model.Snapshot{}
-		if err := json.Unmarshal(data, snapshot); err != nil {
-			return nil, fmt.Errorf("failed to parse input snapshot: %w", err)
-		}
-	} else {
-		// Collect live data
-		if runtime.GOOS != "windows" {
-			return nil, fmt.Errorf("live data collection requires Windows, use --input with snapshot file")
-		}
-		
-		provider := inventory.NewProvider()
-		inv, err := provider.CollectInventory()
-		if err != nil {
-			return nil, fmt.Errorf("failed to collect inventory: %w", err)
-		}
-		
-		snapshot, err = inv.ToSnapshot()
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert inventory to snapshot: %w", err)
-		}
+	snapshot, err := loadSnapshotFromSource(inputFile)
+	if err != nil {
+		return nil, err
 	}
 	
 	// Generate recommendations
@@ -288,47 +265,68 @@ func exportRuntimeData(exporter *export.Exporter, outputFile, format string) (*e
 		return nil, fmt.Errorf("runtime data collection requires Windows")
 	}
 	
-	// For now, create a basic runtime data structure
-	// In a real implementation, this would use the runtime provider
-	runtimeData := &export.RuntimeData{
-		CurrentFrequency: 2666,
-		ConfiguredSpeed:  2666,
-		Timings:         make(map[string]uint16),
-		Voltages:        make(map[string]float32),
+	// Collect actual runtime parameters
+	runtimeProvider := runtimeCollect.NewProvider()
+	params, err := runtimeProvider.CollectMemoryParameters()
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect runtime parameters: %w", err)
 	}
 	
-	// Add some sample timing data
-	runtimeData.Timings["CL"] = 19
-	runtimeData.Timings["TRCD"] = 19
-	runtimeData.Timings["TRP"] = 19
-	runtimeData.Timings["TRAS"] = 43
+	// Convert to export format with validation
+	runtimeData := &export.RuntimeData{
+		CurrentFrequency: params.CurrentFrequency,
+		ConfiguredSpeed:  params.ConfiguredSpeed,
+		Timings:         make(map[string]uint16),
+		Voltages:        make(map[string]float32),
+		Temperature:     make(map[string]float32),
+	}
 	
-	runtimeData.Voltages["VDIMM"] = 1.2
-	runtimeData.Voltages["VCCSA"] = 1.0
+	// Set active profile if available
+	if params.Profile != nil {
+		runtimeData.ActiveProfile = params.Profile.Name
+	}
 	
-	// For CSV export, create a simple analysis structure
+	// Convert timings with validation
+	for name, timing := range params.Timings {
+		if timing.Value > 0 {
+			runtimeData.Timings[name] = timing.Value
+		}
+	}
+	
+	// Convert voltages with validation
+	for name, voltage := range params.Voltages {
+		if voltage.Value > 0 {
+			runtimeData.Voltages[name] = voltage.Value
+		}
+	}
+	
+	var exportErr error
+	
+	// For CSV export, create a comprehensive analysis structure
 	if format == "csv" {
 		memoryAnalysis := &export.MemoryAnalysis{
 			Timestamp:   time.Now(),
 			RuntimeData: runtimeData,
+			SystemInfo: &export.SystemInfo{
+				CPU: "Runtime Collection",
+			},
 			Modules: []*export.MemoryModule{
 				{
-					Slot:     "Runtime",
+					Slot:     "Runtime Parameters",
 					Speed:    runtimeData.CurrentFrequency,
+					Voltage:  getAverageVoltage(runtimeData.Voltages),
 					Timings:  runtimeData.Timings,
 				},
 			},
 		}
 		
-		err := exporter.ExportToFile(memoryAnalysis, outputFile, format)
-		if err != nil {
-			return &export.ExportResult{Success: false, Error: err.Error()}, err
-		}
+		exportErr = exporter.ExportToFile(memoryAnalysis, outputFile, format)
 	} else {
-		err := exporter.ExportToFile(runtimeData, outputFile, format)
-		if err != nil {
-			return &export.ExportResult{Success: false, Error: err.Error()}, err
-		}
+		exportErr = exporter.ExportToFile(runtimeData, outputFile, format)
+	}
+	
+	if exportErr != nil {
+		return &export.ExportResult{Success: false, Error: exportErr.Error()}, exportErr
 	}
 	
 	// Get file stats
@@ -342,8 +340,21 @@ func exportRuntimeData(exporter *export.Exporter, outputFile, format string) (*e
 		Success:     true,
 		OutputPath:  outputFile,
 		Format:      format,
-		RecordCount: 1,
+		RecordCount: len(runtimeData.Timings) + len(runtimeData.Voltages),
 		FileSize:    fileSize,
 		Timestamp:   time.Now(),
 	}, nil
+}
+
+// Helper function to calculate average voltage
+func getAverageVoltage(voltages map[string]float32) float32 {
+	if len(voltages) == 0 {
+		return 0
+	}
+	
+	var sum float32
+	for _, voltage := range voltages {
+		sum += voltage
+	}
+	return sum / float32(len(voltages))
 }
