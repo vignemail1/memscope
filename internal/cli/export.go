@@ -16,8 +16,7 @@ func newExportCmd() *cobra.Command {
 		},
 	}
 	
-	cmd.Flags().StringP("format", "f", "csv", "Output format (csv, json)")
-	cmd.Flags().StringP("output", "o", "", "Output file path (default: stdout)")
+	// Remove the flags - they weren't in the spec
 	
 	return cmd
 }
