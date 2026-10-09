@@ -119,7 +119,11 @@ func TestParseSPDDataIntegration(t *testing.T) {
 	// Manufacturer data
 	mockSPDData[320] = 0x80 // Manufacturer ID low
 	mockSPDData[321] = 0x2C // Manufacturer ID high (Micron)
-	copy(mockSPDData[329:], []byte("TestModule123       ")) // Part number
+	// Part number with bounds checking
+	partNumberBytes := []byte("TestModule123       ")
+	if len(mockSPDData) >= 329+len(partNumberBytes) {
+		copy(mockSPDData[329:], partNumberBytes)
+	}
 	
 	profile, err := ParseSPDData(mockSPDData)
 	if err != nil {
@@ -164,7 +168,11 @@ func TestParseSPDDataDDR5Integration(t *testing.T) {
 	// Manufacturer data
 	mockSPDData[320] = 0x80 // Manufacturer ID low
 	mockSPDData[321] = 0xAD // Manufacturer ID high (SK Hynix)
-	copy(mockSPDData[329:], []byte("DDR5TestMod         ")) // Part number
+	// Part number with bounds checking
+	partNumberBytes := []byte("DDR5TestMod         ")
+	if len(mockSPDData) >= 329+len(partNumberBytes) {
+		copy(mockSPDData[329:], partNumberBytes)
+	}
 	
 	profile, err := ParseSPDData(mockSPDData)
 	if err != nil {
@@ -254,7 +262,11 @@ func TestParseSPDDataWithXMPIntegration(t *testing.T) {
 	// Manufacturer data
 	mockSPDData[320] = 0x04 // Manufacturer ID low
 	mockSPDData[321] = 0xCD // Manufacturer ID high (G.Skill)
-	copy(mockSPDData[329:], []byte("TestXMPModule       ")) // Part number
+	// Part number with bounds checking
+	partNumberBytes := []byte("TestXMPModule       ")
+	if len(mockSPDData) >= 329+len(partNumberBytes) {
+		copy(mockSPDData[329:], partNumberBytes)
+	}
 	
 	profile, err := ParseSPDData(mockSPDData)
 	if err != nil {
@@ -308,7 +320,11 @@ func TestParseSPDDataWithEXPOIntegration(t *testing.T) {
 	// Manufacturer data
 	mockSPDData[320] = 0x80 // Manufacturer ID low
 	mockSPDData[321] = 0xCE // Manufacturer ID high (Samsung)
-	copy(mockSPDData[329:], []byte("TestEXPOModule      ")) // Part number
+	// Part number with bounds checking
+	partNumberBytes := []byte("TestEXPOModule      ")
+	if len(mockSPDData) >= 329+len(partNumberBytes) {
+		copy(mockSPDData[329:], partNumberBytes)
+	}
 	
 	profile, err := ParseSPDData(mockSPDData)
 	if err != nil {

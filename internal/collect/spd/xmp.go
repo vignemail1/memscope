@@ -49,8 +49,8 @@ func parseXMP2Profiles(data []byte) ([]MemoryProfile, error) {
 
 	// Verify XMP signature
 	xmpData := data[XMP2Offset:]
-	if !verifyXMPSignature(xmpData) {
-		return nil, fmt.Errorf("invalid XMP signature")
+	if err := verifyXMPSignature(xmpData); err != nil {
+		return nil, fmt.Errorf("XMP signature verification failed: %w", err)
 	}
 
 	var profiles []MemoryProfile
@@ -140,10 +140,10 @@ func parseXMP2Profile(xmpData []byte, profileNum int) (*MemoryProfile, error) {
 	return profile, nil
 }
 
-// verifyXMPSignature checks if XMP signature is present
-func verifyXMPSignature(xmpData []byte) bool {
+// verifyXMPSignature checks if XMP signature is present and returns specific error
+func verifyXMPSignature(xmpData []byte) error {
 	if len(xmpData) < 4 {
-		return false
+		return fmt.Errorf("insufficient data for XMP signature verification: need 4 bytes, got %d", len(xmpData))
 	}
 
 	// XMP signature is stored in little-endian format
@@ -152,7 +152,11 @@ func verifyXMPSignature(xmpData []byte) bool {
 		uint32(xmpData[2])<<16 | 
 		uint32(xmpData[3])<<24
 
-	return signature == XMPSignature
+	if signature != XMPSignature {
+		return fmt.Errorf("invalid XMP signature: expected 0x%08X, got 0x%08X", XMPSignature, signature)
+	}
+
+	return nil
 }
 
 // extractXMPFrequency calculates frequency from XMP profile data

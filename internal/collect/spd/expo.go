@@ -6,9 +6,17 @@ import (
 
 // EXPO constants for AMD Extended Profiles for Overclocking
 const (
-	EXPOSignature   = "EXPO"     // ASCII signature for EXPO
-	EXPOOffset      = 480        // Byte offset for EXPO data in SPD
-	EXPOProfileSize = 16         // Size of each EXPO profile in bytes
+	// EXPOSignature is the ASCII signature for EXPO profiles
+	EXPOSignature = "EXPO"
+	
+	// EXPO profile locations in SPD data based on JEDEC specification
+	EXPOProfileOffset1 = 480  // First EXPO profile offset in SPD data
+	EXPOProfileOffset2 = 496  // Second EXPO profile offset (480 + 16)
+	EXPOProfileSize    = 16   // Size of each EXPO profile in bytes
+	EXPOSignatureSize  = 4    // "EXPO" signature size
+	
+	// Legacy constants for backward compatibility
+	EXPOOffset = EXPOProfileOffset1 // Deprecated: use EXPOProfileOffset1
 )
 
 // ParseEXPOProfiles extracts AMD EXPO profiles from SPD data
