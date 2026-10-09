@@ -1,0 +1,160 @@
+{
+  "id": "test-snapshot-001",
+  "schema_version": "0.1.0",
+  "tool_version": "0.1.0",
+  "collection_started_at": "2024-01-15T10:30:00Z",
+  "collection_finished_at": "2024-01-15T10:30:05Z",
+  "platform": {
+    "os": "windows",
+    "arch": "amd64"
+  },
+  "devices": [
+    {
+      "id": "system-0",
+      "kind": "system"
+    },
+    {
+      "id": "cpu-0",
+      "kind": "cpu",
+      "parent_id": "system-0"
+    },
+    {
+      "id": "memory-0",
+      "kind": "memory",
+      "parent_id": "system-0"
+    },
+    {
+      "id": "memory-1",
+      "kind": "memory",
+      "parent_id": "system-0"
+    }
+  ],
+  "observations": [
+    {
+      "device_id": "cpu-0",
+      "scope": "hardware",
+      "parameter": "name",
+      "value": {
+        "text": "AMD Ryzen 7 3700X 8-Core Processor"
+      },
+      "source": "wmi",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:01Z"
+    },
+    {
+      "device_id": "memory-0",
+      "scope": "hardware",
+      "parameter": "manufacturer",
+      "value": {
+        "text": "Corsair"
+      },
+      "source": "wmi",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:02Z"
+    },
+    {
+      "device_id": "memory-0",
+      "scope": "hardware",
+      "parameter": "speed",
+      "value": {
+        "unsigned": 3200
+      },
+      "unit": "MT/s",
+      "source": "wmi",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:02Z"
+    },
+    {
+      "device_id": "memory-0",
+      "scope": "spd",
+      "parameter": "voltage_level",
+      "value": {
+        "decimal": 1.35
+      },
+      "source": "spd",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:02Z"
+    },
+    {
+      "device_id": "memory-0",
+      "scope": "spd",
+      "parameter": "cl_timing",
+      "value": {
+        "unsigned": 16
+      },
+      "source": "spd",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:02Z"
+    },
+    {
+      "device_id": "memory-0",
+      "scope": "hardware",
+      "parameter": "part_number",
+      "value": {
+        "text": "CMK16GX4M2B3200C16"
+      },
+      "source": "wmi",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:02Z"
+    },
+    {
+      "device_id": "memory-1",
+      "scope": "hardware",
+      "parameter": "manufacturer",
+      "value": {
+        "text": "Kingston"
+      },
+      "source": "wmi",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:03Z"
+    },
+    {
+      "device_id": "memory-1",
+      "scope": "hardware",
+      "parameter": "speed",
+      "value": {
+        "unsigned": 2666
+      },
+      "unit": "MT/s",
+      "source": "wmi",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:03Z"
+    },
+    {
+      "device_id": "memory-1",
+      "scope": "spd",
+      "parameter": "voltage_level",
+      "value": {
+        "decimal": 1.2
+      },
+      "source": "spd",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:03Z"
+    },
+    {
+      "device_id": "memory-1",
+      "scope": "spd",
+      "parameter": "cl_timing",
+      "value": {
+        "unsigned": 19
+      },
+      "source": "spd",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:03Z"
+    },
+    {
+      "device_id": "memory-1",
+      "scope": "hardware",
+      "parameter": "part_number",
+      "value": {
+        "text": "KHX2666C16/8G"
+      },
+      "source": "wmi",
+      "status": "observed",
+      "captured_at": "2024-01-15T10:30:03Z"
+    }
+  ],
+  "profiles": [],
+  "diagnostics": [],
+  "capabilities": []
+}

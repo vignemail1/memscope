@@ -186,6 +186,30 @@ func (d *Doctor) runMemoryChecks(snapshot *model.Snapshot) []*DiagnosticCheck {
 		}
 	}
 	
+	// Add comprehensive voltage monitoring check
+	voltageMonitoringCheck := d.checkVoltageMonitoring(snapshot, timestamp)
+	if voltageMonitoringCheck != nil {
+		checks = append(checks, voltageMonitoringCheck)
+	}
+	
+	// Add temperature monitoring check
+	temperatureCheck := d.checkTemperatureMonitoring(snapshot, timestamp)
+	if temperatureCheck != nil {
+		checks = append(checks, temperatureCheck)
+	}
+	
+	// Add SPD profile validation
+	spdCheck := d.validateSPDProfiles(memoryDevices, snapshot, timestamp)
+	if spdCheck != nil {
+		checks = append(checks, spdCheck)
+	}
+	
+	// Add mixed memory configuration check
+	mixedCheck := d.checkMixedMemoryConfiguration(memoryDevices, snapshot, timestamp)
+	if mixedCheck != nil {
+		checks = append(checks, mixedCheck)
+	}
+	
 	return checks
 }
 
@@ -208,6 +232,18 @@ func (d *Doctor) runPerformanceChecks(snapshot *model.Snapshot) []*DiagnosticChe
 		}
 	}
 	
+	// Add memory timing analysis
+	timingCheck := d.analyzeMemoryTimings(memoryDevices, snapshot, timestamp)
+	if timingCheck != nil {
+		checks = append(checks, timingCheck)
+	}
+	
+	// Add bandwidth and latency analysis
+	bandwidthCheck := d.analyzeBandwidthAndLatency(memoryDevices, snapshot, timestamp)
+	if bandwidthCheck != nil {
+		checks = append(checks, bandwidthCheck)
+	}
+	
 	return checks
 }
 
@@ -227,6 +263,326 @@ func (d *Doctor) runCompatibilityChecks(snapshot *model.Snapshot) []*DiagnosticC
 	})
 	
 	return checks
+}
+
+// New diagnostic methods
+
+func (d *Doctor) checkVoltageMonitoring(snapshot *model.Snapshot, timestamp time.Time) *DiagnosticCheck {
+	// Check if voltage monitoring is available through runtime observations
+	voltageObservations := 0
+	if snapshot.Observations != nil {
+		for _, obs := range snapshot.Observations {
+			if obs.Scope == "spd" && obs.Parameter == "voltage_level" {
+				voltageObservations++
+			}
+		}
+	}
+	
+	status := "warning"
+	severity := "medium"
+	message := "No voltage monitoring data available"
+	
+	if voltageObservations > 0 {
+		status = "pass"
+		severity = "low"
+		message = fmt.Sprintf("Voltage monitoring active (%d sensors)", voltageObservations)
+	}
+	
+	return &DiagnosticCheck{
+		Name:      "Voltage Monitoring",
+		Category:  "system",
+		Status:    status,
+		Severity:  severity,
+		Message:   message,
+		Suggestion: "Enable voltage monitoring for better system health tracking",
+		Timestamp: timestamp,
+	}
+}
+
+func (d *Doctor) checkTemperatureMonitoring(snapshot *model.Snapshot, timestamp time.Time) *DiagnosticCheck {
+	temperatureObservations := 0
+	if snapshot.Observations != nil {
+		for _, obs := range snapshot.Observations {
+			if obs.Scope == "thermal" && strings.Contains(obs.Parameter, "temperature") {
+				temperatureObservations++
+			}
+		}
+	}
+	
+	status := "warning"
+	severity := "medium" 
+	message := "No temperature monitoring data available"
+	
+	if temperatureObservations > 0 {
+		status = "pass"
+		severity = "low"
+		message = fmt.Sprintf("Temperature monitoring active (%d sensors)", temperatureObservations)
+	}
+	
+	return &DiagnosticCheck{
+		Name:      "Temperature Monitoring",
+		Category:  "system",
+		Status:    status,
+		Severity:  severity,
+		Message:   message,
+		Suggestion: "Enable temperature monitoring for thermal management",
+		Timestamp: timestamp,
+	}
+}
+
+func (d *Doctor) validateSPDProfiles(devices []model.Device, snapshot *model.Snapshot, timestamp time.Time) *DiagnosticCheck {
+	validProfiles := 0
+	totalDevices := len(devices)
+	
+	for _, device := range devices {
+		// Check for SPD profile data in observations
+		hasValidSPD := false
+		for _, obs := range snapshot.Observations {
+			if obs.DeviceID == device.ID && obs.Scope == "spd" {
+				hasValidSPD = true
+				break
+			}
+		}
+		if hasValidSPD {
+			validProfiles++
+		}
+	}
+	
+	status := "warning"
+	severity := "medium"
+	message := fmt.Sprintf("SPD profiles available for %d/%d memory modules", validProfiles, totalDevices)
+	
+	if validProfiles == totalDevices {
+		status = "pass"
+		severity = "low"
+		message = "All memory modules have valid SPD profile data"
+	} else if validProfiles == 0 {
+		status = "error"
+		severity = "high"
+		message = "No SPD profile data available for any memory modules"
+	}
+	
+	return &DiagnosticCheck{
+		Name:      "SPD Profile Validation",
+		Category:  "memory",
+		Status:    status,
+		Severity:  severity,
+		Message:   message,
+		Suggestion: "Verify memory module SPD EEPROM integrity and accessibility",
+		Timestamp: timestamp,
+	}
+}
+
+func (d *Doctor) analyzeMemoryTimings(devices []model.Device, snapshot *model.Snapshot, timestamp time.Time) *DiagnosticCheck {
+	timingIssues := []string{}
+	optimizationOpportunities := []string{}
+	
+	for i, device := range devices {
+		// Look for timing data in observations
+		cl := uint16(0)
+		trcd := uint16(0)
+		
+		for _, obs := range snapshot.Observations {
+			if obs.DeviceID == device.ID && obs.Scope == "spd" {
+				if obs.Parameter == "cl_timing" && obs.Value != nil && obs.Value.Unsigned != nil {
+					cl = uint16(*obs.Value.Unsigned)
+				}
+				if obs.Parameter == "trcd_timing" && obs.Value != nil && obs.Value.Unsigned != nil {
+					trcd = uint16(*obs.Value.Unsigned)
+				}
+			}
+		}
+		
+		// Analyze key timing parameters if available
+		if cl > 0 {
+			if cl > 20 {
+				timingIssues = append(timingIssues, fmt.Sprintf("Module %d has loose CL timing (%d)", i+1, cl))
+			} else if cl <= 14 {
+				optimizationOpportunities = append(optimizationOpportunities, fmt.Sprintf("Module %d has tight CL timing (%d) - good for performance", i+1, cl))
+			}
+		}
+		
+		// Check TRCD timing
+		if trcd > 22 {
+			timingIssues = append(timingIssues, fmt.Sprintf("Module %d has loose TRCD timing (%d)", i+1, trcd))
+		}
+	}
+	
+	status := "pass"
+	severity := "low"
+	message := "Memory timing analysis complete"
+	
+	if len(timingIssues) > 0 {
+		status = "warning"
+		severity = "medium"
+		message = fmt.Sprintf("Timing issues detected: %s", strings.Join(timingIssues, "; "))
+	} else if len(optimizationOpportunities) > 0 {
+		status = "pass"
+		severity = "low"
+		message = fmt.Sprintf("Good timing configuration: %s", strings.Join(optimizationOpportunities, "; "))
+	}
+	
+	return &DiagnosticCheck{
+		Name:      "Memory Timing Analysis",
+		Category:  "performance",
+		Status:    status,
+		Severity:  severity,
+		Message:   message,
+		Suggestion: "Consider XMP/EXPO profiles for optimized timings",
+		Timestamp: timestamp,
+	}
+}
+
+func (d *Doctor) checkMixedMemoryConfiguration(devices []model.Device, snapshot *model.Snapshot, timestamp time.Time) *DiagnosticCheck {
+	speeds := make(map[uint64][]int)
+	manufacturers := make(map[string][]int)
+	voltages := make(map[float64][]int)
+	partNumbers := make(map[string][]int)
+	
+	for i, device := range devices {
+		for _, obs := range snapshot.Observations {
+			if obs.DeviceID == device.ID && obs.Value != nil {
+				switch obs.Parameter {
+				case "speed":
+					if obs.Value.Unsigned != nil {
+						speeds[*obs.Value.Unsigned] = append(speeds[*obs.Value.Unsigned], i+1)
+					}
+				case "manufacturer":
+					if obs.Value.Text != nil {
+						manufacturers[*obs.Value.Text] = append(manufacturers[*obs.Value.Text], i+1)
+					}
+				case "voltage_level":
+					if obs.Value.Decimal != nil {
+						voltages[*obs.Value.Decimal] = append(voltages[*obs.Value.Decimal], i+1)
+					}
+				case "part_number":
+					if obs.Value.Text != nil {
+						partNumbers[*obs.Value.Text] = append(partNumbers[*obs.Value.Text], i+1)
+					}
+				}
+			}
+		}
+	}
+	
+	issues := []string{}
+	warnings := []string{}
+	
+	if len(speeds) > 1 {
+		issues = append(issues, "Mixed memory speeds may cause system to run at lowest speed")
+		for speed, slots := range speeds {
+			warnings = append(warnings, fmt.Sprintf("%d MT/s in slots %v", speed, slots))
+		}
+	}
+	
+	if len(manufacturers) > 1 {
+		issues = append(issues, "Mixed manufacturers may cause compatibility issues")
+	}
+	
+	if len(voltages) > 1 {
+		issues = append(issues, "Mixed voltages may cause stability problems")
+	}
+	
+	if len(partNumbers) == 1 && len(partNumbers) > 0 {
+		// All modules are identical - best case
+		return &DiagnosticCheck{
+			Name:      "Mixed Memory Configuration",
+			Category:  "memory",
+			Status:    "pass",
+			Severity:  "low",
+			Message:   "All memory modules are identical (matched kit)",
+			Timestamp: timestamp,
+		}
+	}
+	
+	status := "warning"
+	severity := "medium"
+	if len(issues) > 2 {
+		severity = "high"
+	}
+	
+	message := fmt.Sprintf("Mixed memory configuration detected: %s", strings.Join(issues, "; "))
+	if len(warnings) > 0 {
+		message += fmt.Sprintf(" Details: %s", strings.Join(warnings, "; "))
+	}
+	
+	return &DiagnosticCheck{
+		Name:      "Mixed Memory Configuration",
+		Category:  "memory", 
+		Status:    status,
+		Severity:  severity,
+		Message:   message,
+		Suggestion: "Use matched memory kits from same manufacturer with identical specifications",
+		Timestamp: timestamp,
+	}
+}
+
+func (d *Doctor) analyzeBandwidthAndLatency(devices []model.Device, snapshot *model.Snapshot, timestamp time.Time) *DiagnosticCheck {
+	if len(devices) == 0 {
+		return nil
+	}
+	
+	// Calculate theoretical bandwidth and latency
+	totalBandwidth := float64(0)
+	avgLatency := float64(0)
+	validDevices := 0
+	
+	for _, device := range devices {
+		speed := uint64(0)
+		cl := uint16(15) // Default CL
+		
+		for _, obs := range snapshot.Observations {
+			if obs.DeviceID == device.ID && obs.Value != nil {
+				if obs.Parameter == "speed" && obs.Value.Unsigned != nil {
+					speed = *obs.Value.Unsigned
+				}
+				if obs.Parameter == "cl_timing" && obs.Value.Unsigned != nil {
+					cl = uint16(*obs.Value.Unsigned)
+				}
+			}
+		}
+		
+		if speed > 0 {
+			// DDR memory: theoretical bandwidth = speed * bus_width * 2 / 8 (bytes/sec)
+			// Assuming 64-bit bus width
+			bandwidth := float64(speed) * 64 * 2 / 8 / 1000 // GB/s
+			totalBandwidth += bandwidth
+			
+			// Latency in nanoseconds: (CL / (speed * 1000000)) * 1000000000
+			deviceLatency := (float64(cl) / (float64(speed) * 1000000)) * 1000000000
+			avgLatency += deviceLatency
+			validDevices++
+		}
+	}
+	
+	if validDevices == 0 {
+		return nil
+	}
+	
+	avgLatency = avgLatency / float64(validDevices)
+	
+	status := "pass"
+	severity := "low"
+	message := fmt.Sprintf("Theoretical bandwidth: %.1f GB/s, Average latency: %.1f ns", totalBandwidth, avgLatency)
+	
+	if totalBandwidth < 25.0 {
+		status = "warning"
+		severity = "medium"
+		message = fmt.Sprintf("Low memory bandwidth (%.1f GB/s) may impact performance", totalBandwidth)
+	} else if avgLatency > 15.0 {
+		status = "warning"
+		severity = "medium"
+		message = fmt.Sprintf("High memory latency (%.1f ns) may affect responsiveness", avgLatency)
+	}
+	
+	return &DiagnosticCheck{
+		Name:      "Memory Bandwidth and Latency",
+		Category:  "performance",
+		Status:    status,
+		Severity:  severity,
+		Message:   message,
+		Suggestion: "Consider faster memory or tighter timings for better performance",
+		Timestamp: timestamp,
+	}
 }
 
 // Helper methods

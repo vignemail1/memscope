@@ -217,8 +217,47 @@ func outputDiagnosticResult(result *doctor.DiagnosticResult, filename, format st
 		return encoder.Encode(result)
 	}
 	
-	// Text format output to file would go here
-	return fmt.Errorf("text format file output not implemented")
+	// Text format output
+	fmt.Fprintf(file, "=== System Diagnostic Report ===\n")
+	fmt.Fprintf(file, "Generated: %s\n", result.Timestamp.Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(file, "Overall Health: %s (%.1f/100)\n\n", result.HealthStatus, result.OverallScore)
+	
+	if result.SystemInfo != nil {
+		fmt.Fprintf(file, "=== System Information ===\n")
+		fmt.Fprintf(file, "CPU: %s\n", result.SystemInfo.CPU)
+		fmt.Fprintf(file, "Motherboard: %s\n", result.SystemInfo.Motherboard)
+		fmt.Fprintf(file, "Memory: %s (%d modules)\n\n", result.SystemInfo.TotalCapacity, result.SystemInfo.PopulatedSlots)
+	}
+	
+	if result.Summary != nil {
+		fmt.Fprintf(file, "=== Summary ===\n")
+		fmt.Fprintf(file, "Total Checks: %d (Passed: %d, Warnings: %d, Errors: %d)\n", 
+			result.Summary.TotalChecks, result.Summary.PassedChecks, result.Summary.WarningChecks, result.Summary.ErrorChecks)
+		fmt.Fprintf(file, "Memory Score: %.1f/100\n", result.Summary.MemoryScore)
+		fmt.Fprintf(file, "Performance Score: %.1f/100\n", result.Summary.PerformanceScore)
+		fmt.Fprintf(file, "Compatibility Score: %.1f/100\n\n", result.Summary.CompatibilityScore)
+	}
+	
+	fmt.Fprintf(file, "=== Detailed Checks ===\n")
+	for _, check := range result.Checks {
+		fmt.Fprintf(file, "[%s] %s: %s\n", strings.ToUpper(check.Status), check.Name, check.Message)
+		if check.Details != "" {
+			fmt.Fprintf(file, "  Details: %s\n", check.Details)
+		}
+		if check.Suggestion != "" {
+			fmt.Fprintf(file, "  Suggestion: %s\n", check.Suggestion)
+		}
+	}
+	
+	if len(result.Recommendations) > 0 {
+		fmt.Fprintf(file, "\n=== Recommendations ===\n")
+		for i, rec := range result.Recommendations {
+			fmt.Fprintf(file, "%d. [%s] %s\n", i+1, strings.ToUpper(rec.Priority), rec.Title)
+			fmt.Fprintf(file, "   %s\n", rec.Description)
+		}
+	}
+	
+	return nil
 }
 
 func getStatusIcon(status string) string {
