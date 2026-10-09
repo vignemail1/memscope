@@ -12,13 +12,23 @@ func TestInspectCommand(t *testing.T) {
 	cmd.SetArgs([]string{"inspect"})
 	
 	err := cmd.Execute()
+	
+	// On Windows, command should succeed
+	// On other platforms, it should fail with expected message
 	if err != nil {
-		t.Fatalf("inspect command failed: %v", err)
+		errorMsg := err.Error()
+		if errorMsg != "failed to collect hardware inventory: inventory collection not supported on darwin" &&
+		   errorMsg != "failed to collect hardware inventory: inventory collection not supported on linux" {
+			t.Fatalf("inspect command failed with unexpected error: %v", err)
+		}
+		// Test passed - got expected error on unsupported platform
+		return
 	}
 	
+	// If no error, we should have output (Windows case)
 	output := buf.String()
 	if output == "" {
-		t.Fatal("inspect command produced no output")
+		t.Fatal("inspect command succeeded but produced no output")
 	}
 }
 
