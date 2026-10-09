@@ -192,24 +192,37 @@ func GetSystemInfo() (*SystemInfo, error) {
 	
 	info := &SystemInfo{}
 	
-	// Extract system info
+	// Extract system info with better error context
 	if manufacturer, ok := systemResults[0]["Manufacturer"].(string); ok {
 		info.Manufacturer = manufacturer
-	}
-	if model, ok := systemResults[0]["Model"].(string); ok {
-		info.Model = model
+	} else if systemResults[0]["Manufacturer"] != nil {
+		return nil, fmt.Errorf("unexpected type for system Manufacturer: %T", systemResults[0]["Manufacturer"])
 	}
 	
-	// Extract BIOS info
+	if model, ok := systemResults[0]["Model"].(string); ok {
+		info.Model = model
+	} else if systemResults[0]["Model"] != nil {
+		return nil, fmt.Errorf("unexpected type for system Model: %T", systemResults[0]["Model"])
+	}
+	
+	// Extract BIOS info with better error context
 	if len(biosResults) > 0 {
 		if vendor, ok := biosResults[0]["Manufacturer"].(string); ok {
 			info.BIOSVendor = vendor
+		} else if biosResults[0]["Manufacturer"] != nil {
+			return nil, fmt.Errorf("unexpected type for BIOS Manufacturer: %T", biosResults[0]["Manufacturer"])
 		}
+		
 		if version, ok := biosResults[0]["SMBIOSBIOSVersion"].(string); ok {
 			info.BIOSVersion = version
+		} else if biosResults[0]["SMBIOSBIOSVersion"] != nil {
+			return nil, fmt.Errorf("unexpected type for BIOS SMBIOSBIOSVersion: %T", biosResults[0]["SMBIOSBIOSVersion"])
 		}
+		
 		if date, ok := biosResults[0]["ReleaseDate"].(string); ok {
 			info.BIOSDate = date
+		} else if biosResults[0]["ReleaseDate"] != nil {
+			return nil, fmt.Errorf("unexpected type for BIOS ReleaseDate: %T", biosResults[0]["ReleaseDate"])
 		}
 	}
 	
@@ -236,42 +249,10 @@ func GetMemoryInfo() ([]MemoryModule, error) {
 	modules := make([]MemoryModule, 0, len(results))
 	
 	for _, result := range results {
-		module := MemoryModule{}
-		
-		if val, ok := result["DeviceLocator"].(string); ok {
-			module.DeviceLocator = val
+		module, err := convertMemoryModuleData(result)
+		if err != nil {
+			return nil, err
 		}
-		if val, ok := result["BankLabel"].(string); ok {
-			module.BankLabel = val
-		}
-		if val, ok := result["Capacity"].(uint64); ok {
-			module.Capacity = val
-		}
-		if val, ok := result["Speed"].(uint32); ok {
-			module.Speed = val
-		}
-		if val, ok := result["Manufacturer"].(string); ok {
-			module.Manufacturer = val
-		}
-		if val, ok := result["PartNumber"].(string); ok {
-			module.PartNumber = val
-		}
-		if val, ok := result["SerialNumber"].(string); ok {
-			module.SerialNumber = val
-		}
-		if val, ok := result["DataWidth"].(uint16); ok {
-			module.DataWidth = val
-		}
-		if val, ok := result["TotalWidth"].(uint16); ok {
-			module.TotalWidth = val
-		}
-		if val, ok := result["FormFactor"].(uint16); ok {
-			module.FormFactor = val
-		}
-		if val, ok := result["MemoryType"].(uint16); ok {
-			module.MemoryType = val
-		}
-		
 		modules = append(modules, module)
 	}
 	

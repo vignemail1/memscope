@@ -39,3 +39,35 @@ func TestGetMemoryInfo(t *testing.T) {
 		t.Error("Should detect at least one memory module")
 	}
 }
+
+func TestInventoryProviderIntegration(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Skipping Windows-specific test")
+	}
+	
+	provider := NewInventoryProvider()
+	inventory, err := provider.CollectInventory()
+	if err != nil {
+		t.Fatalf("CollectInventory failed: %v", err)
+	}
+	
+	// Validate inventory structure
+	if inventory.System.Manufacturer == "" {
+		t.Error("System manufacturer should not be empty")
+	}
+	
+	if inventory.System.Model == "" {
+		t.Error("System model should not be empty")
+	}
+	
+	if len(inventory.Memory) == 0 {
+		t.Error("Should detect at least one memory module")
+	}
+	
+	// Validate memory module data
+	for i, module := range inventory.Memory {
+		if module.Capacity == 0 {
+			t.Errorf("Memory module %d should have non-zero capacity", i)
+		}
+	}
+}
