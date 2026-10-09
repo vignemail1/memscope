@@ -2,3 +2,4 @@
 /coverage/
 *.test
 .DS_Store
+memscope
