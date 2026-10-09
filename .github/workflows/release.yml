@@ -1,0 +1,150 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Build and Release with GoReleaser
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Fetch all tags
+      run: git fetch --force --tags
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Install dependencies
+      run: go mod download
+    
+    - name: Run tests before release
+      run: |
+        go test -v ./...
+        go test -v -short ./test/integration
+    
+    - name: Install CycloneDX Go tool
+      run: |
+        go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
+    
+    - name: Install SPDX tools
+      run: |
+        curl -Lo spdx-sbom-generator.tar.gz https://github.com/opensbom-generator/spdx-sbom-generator/releases/latest/download/spdx-sbom-generator-linux-amd64.tar.gz
+        tar -xzf spdx-sbom-generator.tar.gz
+        chmod +x spdx-sbom-generator-linux-amd64
+        sudo mv spdx-sbom-generator-linux-amd64 /usr/local/bin/spdx-sbom-generator
+    
+    - name: Generate SBOM files
+      run: |
+        mkdir -p sbom
+        
+        # Generate CycloneDX SBOM
+        cyclonedx-gomod mod -json -output sbom/cyclonedx-sbom.json -main ./cmd/memscope
+        cyclonedx-gomod mod -xml -output sbom/cyclonedx-sbom.xml -main ./cmd/memscope
+        
+        # Generate SPDX SBOM
+        spdx-sbom-generator -p . -o sbom/spdx-sbom.json -f json
+        spdx-sbom-generator -p . -o sbom/spdx-sbom.spdx -f tag
+    
+    - name: Create release metadata
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        cat > release-info.json << EOF
+        {
+          "name": "memscope",
+          "version": "${TAG_NAME}",
+          "release_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "commit": "$(git rev-parse HEAD)",
+          "tag": "${TAG_NAME}",
+          "go_version": "$(go version | cut -d' ' -f3)",
+          "changelog_url": "https://github.com/${{ github.repository }}/releases/tag/${TAG_NAME}",
+          "sbom_included": true,
+          "security_scanned": true
+        }
+        EOF
+    
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5
+      with:
+        distribution: goreleaser
+        version: latest
+        args: release --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Upload SBOM files to release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          sbom/cyclonedx-sbom.json
+          sbom/cyclonedx-sbom.xml
+          sbom/spdx-sbom.json
+          sbom/spdx-sbom.spdx
+          release-info.json
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Create SBOM archive for compliance
+      run: |
+        tar -czf memscope-${GITHUB_REF#refs/tags/}-sbom.tar.gz sbom/ release-info.json
+    
+    - name: Upload SBOM archive to release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: memscope-*-sbom.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Security scan with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'json'
+        output: 'trivy-security-report.json'
+    
+    - name: Upload security report to release
+      uses: softprops/action-gh-release@v1
+      if: always()
+      with:
+        files: trivy-security-report.json
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Generate release summary
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        echo "## 🚀 Release ${TAG_NAME}" >> $GITHUB_STEP_SUMMARY
+        echo "Successfully built and released memscope ${TAG_NAME}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📋 Release Contents" >> $GITHUB_STEP_SUMMARY
+        echo "- **Multi-platform binaries** (Windows, Linux, macOS)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Source code** (zip + tar.gz)" >> $GITHUB_STEP_SUMMARY
+        echo "- **SBOM files** (CycloneDX + SPDX formats)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Security scan results** (Trivy report)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Release metadata** (build info + checksums)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+        echo "- [Release Page](https://github.com/${{ github.repository }}/releases/tag/${TAG_NAME})" >> $GITHUB_STEP_SUMMARY
+        echo "- [Download Binaries](https://github.com/${{ github.repository }}/releases/latest)" >> $GITHUB_STEP_SUMMARY

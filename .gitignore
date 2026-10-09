@@ -1,5 +1,45 @@
+# Build output
 /dist/
 /coverage/
 *.test
 .DS_Store
 memscope
+memscope.exe
+
+# GoReleaser temporary files
+.goreleaser/
+goreleaser/
+
+# SBOM and security scan files (generated during CI)
+/sbom/
+trivy-results.sarif
+trivy-security-report.json
+package-info.json
+release-info.json
+
+# Release artifacts
+/release/
+checksums.txt
+*.tar.gz
+*.zip
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Go specific
+vendor/
+*.mod.backup
+*.sum.backup
